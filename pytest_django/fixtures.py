@@ -262,33 +262,41 @@ def django_username_field(django_user_model):
 @pytest.fixture()
 def admin_user(db, django_user_model, django_username_field):
     """A Django admin user.
-
     This uses an existing user with username "admin", or creates a new one with
     password "password".
     """
     UserModel = django_user_model
     username_field = django_username_field
     username = "admin@example.com" if username_field == "email" else "admin"
+    attributes = {username_field: username}
 
     try:
-        user = UserModel._default_manager.get(**{username_field: username})
+        user = UserModel._default_manager.get(**attributes)
     except UserModel.DoesNotExist:
-        extra_fields = {}
-        if username_field not in ("username", "email"):
-            extra_fields[username_field] = "admin"
+        all_user_model_fields = [x.name for x in UserModel._meta.get_fields()]
+
+        if 'username' in all_user_model_fields:
+            # django.contrib.auth.UserManager expects a username field to be
+            # present, even if a different USERNAME_FIELD is set.
+            attributes['username'] = 'admin'
+        if 'email' in all_user_model_fields:
+            # Handle both email field required for default UserManager and
+            # cases where USERNAME_FIELD is the email.
+            attributes['email'] = 'admin@example.com'
+
         user = UserModel._default_manager.create_superuser(
-            username, "admin@example.com", "password", **extra_fields
+            password='password', **attributes
         )
     return user
 
 
 @pytest.fixture()
-def admin_client(db, admin_user):
+def admin_client(db, admin_user, django_username_field):
     """A Django test client logged in as an admin user."""
     from django.test.client import Client
 
     client = Client()
-    client.login(username=admin_user.username, password="password")
+    client.login(username=getattr(admin_user, django_username_field), password='password')
     return client
 
 
