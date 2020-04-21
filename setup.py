@@ -54,6 +54,7 @@ setup(
                  'Framework :: Django :: 2.0',
                  'Framework :: Django :: 2.1',
                  'Framework :: Django :: 2.2',
+                 'Framework :: Django :: 3.0',
                  'Intended Audience :: Developers',
                  'License :: OSI Approved :: BSD License',
                  'Operating System :: OS Independent',
@@ -63,9 +64,14 @@ setup(
                  'Programming Language :: Python :: 3.5',
                  'Programming Language :: Python :: 3.6',
                  'Programming Language :: Python :: 3.7',
+                 'Programming Language :: Python :: 3.8',
                  'Programming Language :: Python :: Implementation :: CPython',
                  'Programming Language :: Python :: Implementation :: PyPy',
                  'Topic :: Software Development :: Testing',
                  ],
+    project_urls={
+        'Source': 'https://github.com/pytest-dev/pytest-django',
+        'Changelog': 'https://pytest-django.readthedocs.io/en/latest/changelog.html',
+    },
     # the following makes a plugin available to pytest
     entry_points={'pytest11': ['django = pytest_django.plugin']})

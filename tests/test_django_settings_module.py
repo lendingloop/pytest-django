@@ -38,10 +38,10 @@ def test_ds_ini(testdir, monkeypatch):
     """
     )
     result = testdir.runpytest_subprocess()
-    assert result.parseoutcomes()["passed"] == 1
-    result.stdout.fnmatch_lines(
-        ["Django settings: tpkg.settings_ini " "(from ini file)*"]
-    )
+    result.stdout.fnmatch_lines([
+        "django: settings: tpkg.settings_ini (from ini)",
+        "*= 1 passed in *",
+    ])
     assert result.ret == 0
 
 
@@ -59,10 +59,10 @@ def test_ds_env(testdir, monkeypatch):
     """
     )
     result = testdir.runpytest_subprocess()
-    result.stdout.fnmatch_lines(
-        ["Django settings: tpkg.settings_env (from " "environment variable)*"]
-    )
-    assert result.parseoutcomes()["passed"] == 1
+    result.stdout.fnmatch_lines([
+        "django: settings: tpkg.settings_env (from env)",
+        "*= 1 passed in *",
+    ])
 
 
 def test_ds_option(testdir, monkeypatch):
@@ -85,10 +85,10 @@ def test_ds_option(testdir, monkeypatch):
     """
     )
     result = testdir.runpytest_subprocess("--ds=tpkg.settings_opt")
-    result.stdout.fnmatch_lines(
-        ["Django settings: tpkg.settings_opt " "(from command line option)"]
-    )
-    assert result.parseoutcomes()["passed"] == 1
+    result.stdout.fnmatch_lines([
+        "django: settings: tpkg.settings_opt (from option)",
+        "*= 1 passed in *",
+    ])
 
 
 def test_ds_env_override_ini(testdir, monkeypatch):
@@ -138,7 +138,7 @@ def test_ds_after_user_conftest(testdir, monkeypatch):
     testdir.makepyfile(settings_after_conftest="SECRET_KEY='secret'")
     # testdir.makeconftest("import sys; print(sys.path)")
     result = testdir.runpytest_subprocess("-v")
-    result.stdout.fnmatch_lines(["*1 passed*"])
+    result.stdout.fnmatch_lines(["* 1 passed in*"])
     assert result.ret == 0
 
 
@@ -226,7 +226,7 @@ def test_django_settings_configure(testdir, monkeypatch):
     """
     )
     result = testdir.runpython(p)
-    result.stdout.fnmatch_lines(["*4 passed*"])
+    result.stdout.fnmatch_lines(["* 4 passed in*"])
 
 
 def test_settings_in_hook(testdir, monkeypatch):
@@ -275,7 +275,7 @@ def test_django_not_loaded_without_settings(testdir, monkeypatch):
     """
     )
     result = testdir.runpytest_subprocess()
-    result.stdout.fnmatch_lines(["*1 passed*"])
+    result.stdout.fnmatch_lines(["* 1 passed in*"])
     assert result.ret == 0
 
 

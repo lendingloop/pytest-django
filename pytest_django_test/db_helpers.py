@@ -5,7 +5,7 @@ import sqlite3
 import pytest
 
 from django.conf import settings
-from django.utils.encoding import force_text
+from django.utils.encoding import force_str
 
 
 # Construct names for the "inner" database used in runpytest tests
@@ -61,19 +61,27 @@ def skip_if_sqlite_in_memory():
         pytest.skip("Do not test db reuse since database does not support it")
 
 
-def drop_database(name=TEST_DB_NAME):
+def _get_db_name(db_suffix=None):
+    name = TEST_DB_NAME
+    if db_suffix:
+        name = "%s_%s" % (name, db_suffix)
+    return name
+
+
+def drop_database(db_suffix=None):
+    name = _get_db_name(db_suffix)
     db_engine = get_db_engine()
 
     if db_engine == "postgresql_psycopg2":
         r = run_cmd("psql", "postgres", "-c", "DROP DATABASE %s" % name)
-        assert "DROP DATABASE" in force_text(
+        assert "DROP DATABASE" in force_str(
             r.std_out
-        ) or "does not exist" in force_text(r.std_err)
+        ) or "does not exist" in force_str(r.std_err)
         return
 
     if db_engine == "mysql":
         r = run_mysql("-e", "DROP DATABASE %s" % name)
-        assert "database doesn't exist" in force_text(r.std_err) or r.status_code == 0
+        assert "database doesn't exist" in force_str(r.std_err) or r.status_code == 0
         return
 
     assert db_engine == "sqlite3", "%s cannot be tested properly!" % db_engine
@@ -83,11 +91,8 @@ def drop_database(name=TEST_DB_NAME):
 
 
 def db_exists(db_suffix=None):
-    name = TEST_DB_NAME
+    name = _get_db_name(db_suffix)
     db_engine = get_db_engine()
-
-    if db_suffix:
-        name = "%s_%s" % (name, db_suffix)
 
     if db_engine == "postgresql_psycopg2":
         r = run_cmd("psql", name, "-c", "SELECT 1")

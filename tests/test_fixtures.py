@@ -7,19 +7,31 @@ fixtures are tested in test_database.
 from __future__ import with_statement
 
 import socket
+from contextlib import contextmanager
 
 import pytest
-
-from django.db import connection, transaction
 from django.conf import settings as real_settings
 from django.core import mail
+from django.db import connection, transaction
 from django.test.client import Client, RequestFactory
 from django.test.testcases import connections_support_transactions
-from django.utils.encoding import force_text
+from django.utils.encoding import force_str
 
 from pytest_django.lazy_django import get_django_version
 from pytest_django_test.app.models import Item
 from pytest_django_test.compat import HTTPError, urlopen
+
+
+@contextmanager
+def nonverbose_config(config):
+    """Ensure that pytest's config.option.verbose is <= 0."""
+    if config.option.verbose <= 0:
+        yield
+    else:
+        saved = config.option.verbose
+        config.option.verbose = 0
+        yield
+        config.option.verbose = saved
 
 
 def test_client(client):
@@ -30,13 +42,13 @@ def test_client(client):
 def test_admin_client(admin_client):
     assert isinstance(admin_client, Client)
     resp = admin_client.get("/admin-required/")
-    assert force_text(resp.content) == "You are an admin"
+    assert force_str(resp.content) == "You are an admin"
 
 
 def test_admin_client_no_db_marker(admin_client):
     assert isinstance(admin_client, Client)
     resp = admin_client.get("/admin-required/")
-    assert force_text(resp.content) == "You are an admin"
+    assert force_str(resp.content) == "You are an admin"
 
 
 @pytest.mark.django_db
@@ -53,56 +65,58 @@ def test_rf(rf):
 
 
 @pytest.mark.django_db
-def test_django_assert_num_queries_db(django_assert_num_queries):
-    with django_assert_num_queries(3):
-        Item.objects.create(name="foo")
-        Item.objects.create(name="bar")
-        Item.objects.create(name="baz")
-
-    with pytest.raises(pytest.fail.Exception) as excinfo:
-        with django_assert_num_queries(2) as captured:
-            Item.objects.create(name="quux")
-    assert excinfo.value.args == (
-        "Expected to perform 2 queries but 1 was done "
-        "(add -v option to show queries)",
-    )
-    assert len(captured.captured_queries) == 1
-
-
-@pytest.mark.django_db
-def test_django_assert_max_num_queries_db(django_assert_max_num_queries):
-    with django_assert_max_num_queries(2):
-        Item.objects.create(name="1-foo")
-        Item.objects.create(name="2-bar")
-
-    with pytest.raises(pytest.fail.Exception) as excinfo:
-        with django_assert_max_num_queries(2) as captured:
-            Item.objects.create(name="1-foo")
-            Item.objects.create(name="2-bar")
-            Item.objects.create(name="3-quux")
-
-    assert excinfo.value.args == (
-        "Expected to perform 2 queries or less but 3 were done "
-        "(add -v option to show queries)",
-    )
-    assert len(captured.captured_queries) == 3
-    assert "1-foo" in captured.captured_queries[0]["sql"]
-
-
-@pytest.mark.django_db(transaction=True)
-def test_django_assert_num_queries_transactional_db(
-    transactional_db, django_assert_num_queries
-):
-    with transaction.atomic():
-
+def test_django_assert_num_queries_db(request, django_assert_num_queries):
+    with nonverbose_config(request.config):
         with django_assert_num_queries(3):
             Item.objects.create(name="foo")
             Item.objects.create(name="bar")
             Item.objects.create(name="baz")
 
-        with pytest.raises(pytest.fail.Exception):
-            with django_assert_num_queries(2):
+        with pytest.raises(pytest.fail.Exception) as excinfo:
+            with django_assert_num_queries(2) as captured:
                 Item.objects.create(name="quux")
+        assert excinfo.value.args == (
+            "Expected to perform 2 queries but 1 was done "
+            "(add -v option to show queries)",
+        )
+        assert len(captured.captured_queries) == 1
+
+
+@pytest.mark.django_db
+def test_django_assert_max_num_queries_db(request, django_assert_max_num_queries):
+    with nonverbose_config(request.config):
+        with django_assert_max_num_queries(2):
+            Item.objects.create(name="1-foo")
+            Item.objects.create(name="2-bar")
+
+        with pytest.raises(pytest.fail.Exception) as excinfo:
+            with django_assert_max_num_queries(2) as captured:
+                Item.objects.create(name="1-foo")
+                Item.objects.create(name="2-bar")
+                Item.objects.create(name="3-quux")
+
+        assert excinfo.value.args == (
+            "Expected to perform 2 queries or less but 3 were done "
+            "(add -v option to show queries)",
+        )
+        assert len(captured.captured_queries) == 3
+        assert "1-foo" in captured.captured_queries[0]["sql"]
+
+
+@pytest.mark.django_db(transaction=True)
+def test_django_assert_num_queries_transactional_db(
+    request, transactional_db, django_assert_num_queries
+):
+    with nonverbose_config(request.config):
+        with transaction.atomic():
+            with django_assert_num_queries(3):
+                Item.objects.create(name="foo")
+                Item.objects.create(name="bar")
+                Item.objects.create(name="baz")
+
+            with pytest.raises(pytest.fail.Exception):
+                with django_assert_num_queries(2):
+                    Item.objects.create(name="quux")
 
 
 def test_django_assert_num_queries_output(django_testdir):
@@ -314,10 +328,10 @@ class TestLiveServer:
         TestLiveServer._test_settings_before_run = True
 
     def test_url(self, live_server):
-        assert live_server.url == force_text(live_server)
+        assert live_server.url == force_str(live_server)
 
     def test_change_settings(self, live_server, settings):
-        assert live_server.url == force_text(live_server)
+        assert live_server.url == force_str(live_server)
 
     def test_settings_restored(self):
         """Ensure that settings are restored after test_settings_before."""
@@ -342,20 +356,20 @@ class TestLiveServer:
 
     def test_db_changes_visibility(self, live_server):
         response_data = urlopen(live_server + "/item_count/").read()
-        assert force_text(response_data) == "Item count: 0"
+        assert force_str(response_data) == "Item count: 0"
         Item.objects.create(name="foo")
         response_data = urlopen(live_server + "/item_count/").read()
-        assert force_text(response_data) == "Item count: 1"
+        assert force_str(response_data) == "Item count: 1"
 
     def test_fixture_db(self, db, live_server):
         Item.objects.create(name="foo")
         response_data = urlopen(live_server + "/item_count/").read()
-        assert force_text(response_data) == "Item count: 1"
+        assert force_str(response_data) == "Item count: 1"
 
     def test_fixture_transactional_db(self, transactional_db, live_server):
         Item.objects.create(name="foo")
         response_data = urlopen(live_server + "/item_count/").read()
-        assert force_text(response_data) == "Item count: 1"
+        assert force_str(response_data) == "Item count: 1"
 
     @pytest.fixture
     def item(self):
@@ -372,7 +386,7 @@ class TestLiveServer:
 
     def test_item_db(self, item_db, live_server):
         response_data = urlopen(live_server + "/item_count/").read()
-        assert force_text(response_data) == "Item count: 1"
+        assert force_str(response_data) == "Item count: 1"
 
     @pytest.fixture
     def item_transactional_db(self, transactional_db):
@@ -380,7 +394,7 @@ class TestLiveServer:
 
     def test_item_transactional_db(self, item_transactional_db, live_server):
         response_data = urlopen(live_server + "/item_count/").read()
-        assert force_text(response_data) == "Item count: 1"
+        assert force_str(response_data) == "Item count: 1"
 
     @pytest.mark.django_project(
         extra_settings="""
@@ -403,13 +417,12 @@ class TestLiveServer:
         """
         django_testdir.create_test_module(
             """
-            import pytest
-            from django.utils.encoding import force_text
+            from django.utils.encoding import force_str
 
             try:
-                from urllib2 import urlopen, HTTPError
+                from urllib2 import urlopen
             except ImportError:
-                from urllib.request import urlopen, HTTPError
+                from urllib.request import urlopen
 
             class TestLiveServer:
                 def test_a(self, live_server, settings):
@@ -417,7 +430,7 @@ class TestLiveServer:
                             in settings.INSTALLED_APPS)
                     response_data = urlopen(
                         live_server + '/static/a_file.txt').read()
-                    assert force_text(response_data) == 'bla\\n'
+                    assert force_str(response_data) == 'bla\\n'
             """
         )
         result = django_testdir.runpytest_subprocess("--tb=short", "-v")
@@ -561,13 +574,9 @@ def test_custom_user_model(django_testdir, username_field, original_username_fie
     django_testdir.create_app_file(
         """
         from django.conf.urls import url
-        from pytest_django_test.compat import patterns
         from tpkg.app import views
 
-        urlpatterns = patterns(
-            '',
-            url(r'admin-required/', views.admin_required_view),
-        )
+        urlpatterns = [url(r'admin-required/', views.admin_required_view)]
         """,
         "urls.py",
     )
@@ -586,12 +595,12 @@ def test_custom_user_model(django_testdir, username_field, original_username_fie
     )
     django_testdir.makepyfile(
         """
-        from django.utils.encoding import force_text
+        from django.utils.encoding import force_str
         from tpkg.app.models import MyCustomUser
 
         def test_custom_user_model(admin_client):
             resp = admin_client.get('/admin-required/')
-            assert force_text(resp.content) == 'You are an admin'
+            assert force_str(resp.content) == 'You are an admin'
         """
     )
 
@@ -650,7 +659,7 @@ class Migration(migrations.Migration):
     )
 
     result = django_testdir.runpytest_subprocess("-s")
-    result.stdout.fnmatch_lines(["*1 passed*"])
+    result.stdout.fnmatch_lines(["* 1 passed in*"])
     assert result.ret == 0
 
 
@@ -659,7 +668,7 @@ class Test_django_db_blocker:
     def test_block_manually(self, django_db_blocker):
         try:
             django_db_blocker.block()
-            with pytest.raises(pytest.fail.Exception):
+            with pytest.raises(RuntimeError):
                 Item.objects.exists()
         finally:
             django_db_blocker.restore()
@@ -667,7 +676,7 @@ class Test_django_db_blocker:
     @pytest.mark.django_db
     def test_block_with_block(self, django_db_blocker):
         with django_db_blocker.block():
-            with pytest.raises(pytest.fail.Exception):
+            with pytest.raises(RuntimeError):
                 Item.objects.exists()
 
     def test_unblock_manually(self, django_db_blocker):

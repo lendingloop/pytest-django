@@ -125,8 +125,8 @@ A good way to use ``--reuse-db`` and ``--create-db`` can be:
 * When you alter your database schema, run ``pytest --create-db``, to force
   re-creation of the test database.
 
-``--nomigrations`` - Disable Django 1.7+ migrations
---------------------------------------------------------------
+``--nomigrations`` - Disable Django migrations
+----------------------------------------------
 
 Using ``--nomigrations`` will disable Django migrations and create the database
 by inspecting all models. It may be faster when there are several migrations to
@@ -191,10 +191,32 @@ If you need to customize the location of your test database, this is the
 fixture you want to override.
 
 The default implementation of this fixture requests the
-:fixture:`django_db_modify_db_settings_xdist_suffix` to provide compatibility
+:fixture:`django_db_modify_db_settings_parallel_suffix` to provide compatibility
 with pytest-xdist.
 
 This fixture is by default requested from :fixture:`django_db_setup`.
+
+django_db_modify_db_settings_parallel_suffix
+""""""""""""""""""""""""""""""""""""""""""""
+
+.. fixture:: django_db_modify_db_settings_parallel_suffix
+
+Requesting this fixture will add a suffix to the database name when the tests
+are run via `pytest-xdist`, or via `tox` in parallel mode.
+
+This fixture is by default requested from
+:fixture:`django_db_modify_db_settings`.
+
+django_db_modify_db_settings_tox_suffix
+"""""""""""""""""""""""""""""""""""""""
+
+.. fixture:: django_db_modify_db_settings_tox_suffix
+
+Requesting this fixture will add a suffix to the database name when the tests
+are run via `tox` in parallel mode.
+
+This fixture is by default requested from
+:fixture:`django_db_modify_db_settings_parallel_suffix`.
 
 django_db_modify_db_settings_xdist_suffix
 """""""""""""""""""""""""""""""""""""""""
@@ -202,10 +224,10 @@ django_db_modify_db_settings_xdist_suffix
 .. fixture:: django_db_modify_db_settings_xdist_suffix
 
 Requesting this fixture will add a suffix to the database name when the tests
-are run via pytest-xdist.
+are run via `pytest-xdist`.
 
 This fixture is by default requested from
-:fixture:`django_db_modify_db_settings`.
+:fixture:`django_db_modify_db_settings_parallel_suffix`.
 
 django_db_use_migrations
 """"""""""""""""""""""""
@@ -379,7 +401,7 @@ Use the same database for all xdist processes
 """""""""""""""""""""""""""""""""""""""""""""
 
 By default, each xdist process gets its own database to run tests on. This is
-needed to have transactional tests that does not interfere with eachother.
+needed to have transactional tests that do not interfere with each other.
 
 If you instead want your tests to use the same database, override the
 :fixture:`django_db_modify_db_settings` to not do anything. Put this in

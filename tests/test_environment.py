@@ -58,14 +58,10 @@ def test_invalid_template_variable(django_testdir):
     django_testdir.create_app_file(
         """
         from django.conf.urls import url
-        from pytest_django_test.compat import patterns
 
         from tpkg.app import views
 
-        urlpatterns = patterns(
-            '',
-            url(r'invalid_template/', views.invalid_template),
-        )
+        urlpatterns = [url(r'invalid_template/', views.invalid_template)]
         """,
         "urls.py",
     )
@@ -168,14 +164,10 @@ def test_invalid_template_variable_opt_in(django_testdir):
     django_testdir.create_app_file(
         """
         from django.conf.urls import url
-        from pytest_django_test.compat import patterns
 
         from tpkg.app import views
 
-        urlpatterns = patterns(
-            '',
-            url(r'invalid_template/', views.invalid_template),
-        )
+        urlpatterns = [url(r'invalid_template/', views.invalid_template)]
         """,
         "urls.py",
     )
@@ -227,7 +219,7 @@ def test_database_name():
 
 
 def test_database_noaccess():
-    with pytest.raises(pytest.fail.Exception):
+    with pytest.raises(RuntimeError):
         Item.objects.count()
 
 
